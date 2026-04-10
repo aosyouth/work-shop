@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Work Shop AOS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --bg-color: #0f0f0f; --card-bg: #1a1a1a; --accent: #4a90e2; }
+        body { background-color: var(--bg-color); color: #eeeeee; font-family: sans-serif; }
+        .glass { background: var(--card-bg); border: 1px solid #333; border-radius: 12px; }
+        .loading-overlay { background: rgba(0,0,0,0.8); display: none; position: fixed; inset: 0; z-index: 100; align-items: center; justify-content: center; }
+        input, select { background: #252525 !important; border: 1px solid #444 !important; color: white !important; }
+        .user-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .user-table th, .user-table td { padding: 8px; text-align: left; border-bottom: 1px solid #333; }
+        .user-table th { color: #888; font-weight: normal; font-size: 0.75rem; text-transform: uppercase; }
+        .color-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+    </style>
+</head>
+<body class="p-4 md:p-10">
+
+    <div id="loader" class="loading-overlay flex-col">
+        <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p>กำลังประมวลผลข้อมูลจากระบบ...</p>
+    </div>
+
+    <div class="max-w-4xl mx-auto">
+        <nav class="flex gap-4 mb-8 justify-center">
+            <button onclick="showPage('index')" class="px-6 py-2 glass hover:bg-zinc-800 transition">สรุปผล</button>
+            <button onclick="showPage('user')" class="px-6 py-2 glass hover:bg-zinc-800 transition">ลงทะเบียน</button>
+        </nav>
+        
+        <!-- หน้าสรุปผล -->
+        <main id="page-index" class="space-y-6">
+            <h1 class="text-2xl font-bold text-center">Workshop Dashboard</h1>
+            
+            <div class="grid md:grid-cols-2 gap-6">
+                <!-- กราฟและสถานะจำนวน -->
+                <div class="space-y-6">
+                    <div class="glass p-6">
+                        <canvas id="chartCanvas"></canvas>
+                    </div>
+                    <div id="statusList" class="glass p-6 space-y-4 text-sm">
+                        <!-- รายการสรุปจำนวนจะโหลดที่นี่ -->
+                    </div>
+                </div>
+
+                <!-- ส่วนค้นหารายชื่อตามกิจกรรม (ดึงจาก Sheet Users) -->
+                <div class="glass p-6 flex flex-col">
+                    <h3 class="font-bold mb-4 flex items-center gap-2">
+                        <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                        ตรวจสอบรายชื่อผู้ลงทะเบียน
+                    </h3>
+                    
+                    <select id="filterEventSelect" onchange="filterUsers()" class="w-full p-3 rounded mb-4">
+                        <option value="">-- เลือกกิจกรรมเพื่อดูรายชื่อ --</option>
+                    </select>
+
+                    <!-- ส่วนสรุปสถิติรายกิจกรรม -->
+                    <div id="eventSummaryStats" class="grid grid-cols-3 gap-2 mb-4 hidden">
+                        <div class="bg-zinc-800/50 p-2 rounded text-center">
+                            <p class="text-[10px] text-zinc-500 uppercase">ทั้งหมด</p>
+                            <p id="statTotal" class="text-lg font-bold text-blue-400">0</p>
+                        </div>
+                        <div class="bg-zinc-800/50 p-2 rounded text-center border-l-2 border-blue-500">
+                            <p class="text-[10px] text-zinc-500 uppercase">ชาย</p>
+                            <p id="statMale" class="text-lg font-bold">0</p>
+                        </div>
+                        <div class="bg-zinc-800/50 p-2 rounded text-center border-l-2 border-pink-500">
+                            <p class="text-[10px] text-zinc-500 uppercase">หญิง</p>
+                            <p id="statFemale" class="text-lg font-bold">0</p>
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-y-auto max-h-[320px] pr-2">
+                        <table class="user-table text-sm">
+                            <thead>
+                                <tr>
+                                    <th>ชื่อเล่น</th>
+                                    <th>เพศ</th>
+                                    <th>สีที่ชอบ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="userTableBody">
+                                <tr>
+                                    <td colspan="3" class="text-center py-8 text-zinc-500 italic">เลือกกิจกรรมเพื่อแสดงข้อมูล</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- หน้าลงทะเบียน -->
+        <main id="page-user" class="hidden glass p-8 max-w-lg mx-auto">
+            <h2 class="text-xl font-bold mb-6 text-center text-blue-400">ลงทะเบียนเข้าร่วมกิจกรรม</h2>
+            <form id="regForm" class="space-y-4">
+                <input type="text" name="nickname" placeholder="ชื่อเล่น" required class="w-full p-3 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                <div class="grid grid-cols-2 gap-4">
+                    <select name="gender" class="p-3 rounded">
+                        <option value="ชาย">ชาย</option>
+                        <option value="หญิง">หญิง</option>
+                    </select>
+                    <select id="ageSelect" name="age" class="p-3 rounded"></select>
+                </div>
+                
+                <div class="p-4 bg-zinc-900/50 rounded border border-zinc-800">
+                    <p class="text-xs text-zinc-500 mb-3 uppercase tracking-wider font-semibold">เลือกสีที่ชอบ</p>
+                    <div class="grid grid-cols-3 gap-2">
+                        <script>
+                            const colors = ['เขียว','ม่วง','แดง'];
+                            colors.forEach(c => {
+                                for(let i=1; i<=3; i++) {
+                                    document.write(`
+                                        <label class="flex items-center gap-2 text-xs cursor-pointer bg-zinc-800 p-2 rounded hover:bg-zinc-700 transition">
+                                            <input type="radio" name="color" value="${c}${i}" ${c+i==='เขียว1'?'checked':''}>
+                                            ${c}${i}
+                                        </label>
+                                    `);
+                                }
+                            });
+                        </script>
+                    </div>
+                </div>
+
+                <select id="eventSelect" name="event" required class="w-full p-3 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                    <option value="">-- เลือกกิจกรรม --</option>
+                </select>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded font-bold transition shadow-lg shadow-blue-900/20">บันทึกข้อมูล</button>
+            </form>
+        </main>
+
+        <!-- หน้าเช็คสถานะสำเร็จ -->
+        <main id="page-checkeven" class="hidden glass p-8 max-w-lg mx-auto text-center">
+            <div class="w-16 h-16 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">✓</div>
+            <h2 class="text-xl font-bold">บันทึกสำเร็จ!</h2>
+            <div id="summaryBox" class="text-left mt-6 p-4 bg-black/40 rounded border border-zinc-800 text-sm space-y-2"></div>
+            <button onclick="showPage('index')" class="mt-6 px-6 py-2 bg-zinc-800 rounded hover:bg-zinc-700 transition text-sm">กลับไปหน้าแรก</button>
+        </main>
+
+    </div>
+    
+    <div class="mt-10 mb-10 opacity-50 hover:opacity-100 transition duration-500">
+        <center> <img src="aos-workshop.png" alt="AOS Workshop" class="max-w-[200px] h-auto grayscale hover:grayscale-0 transition"/> </center>
+    </div>
+
+    <script>
+        const API_URL = "https://script.google.com/macros/s/AKfycby0fTPH1NaJ2-mzZkHJRpG0_987ni9tc_y2FcGyjebWv5nFcH9_DUI2tANDv_jMYVrcaw/exec";
+        let myChart;
+        let allUsers = []; 
+        let allEvents = []; 
+
+        window.onload = () => {
+            const ageSelect = document.getElementById('ageSelect');
+            for(let i=6; i<=40; i++) ageSelect.innerHTML += `<option value="${i}">${i}</option>`;
+            loadData();
+        };
+
+        async function loadData() {
+            setLoading(true);
+            try {
+                const res = await fetch(`${API_URL}?action=getData`);
+                const data = await res.json();
+                
+                allUsers = data.users || []; 
+                allEvents = data.events || [];
+
+                const statusList = document.getElementById('statusList');
+                const eventSelect = document.getElementById('eventSelect');
+                const filterEventSelect = document.getElementById('filterEventSelect');
+
+                statusList.innerHTML = '';
+                eventSelect.innerHTML = '<option value="">-- เลือกกิจกรรม --</option>';
+                filterEventSelect.innerHTML = '<option value="">-- เลือกกิจกรรมเพื่อดูรายชื่อ --</option>';
+                
+                const labels = [], counts = [];
+
+                allEvents.forEach(ev => {
+                    const full = ev.count >= ev.limit;
+                    labels.push(ev.name);
+                    counts.push(ev.count);
+
+                    statusList.innerHTML += `
+                        <div class="flex justify-between items-center border-b border-zinc-800 pb-2">
+                            <span>${ev.name}</span>
+                            <span class="${full?'text-red-500':'text-blue-400'} font-bold">${ev.count}/${ev.limit}</span>
+                        </div>
+                    `;
+
+                    if(!full) {
+                        eventSelect.innerHTML += `<option value="${ev.name}">${ev.name} (ว่าง ${ev.limit-ev.count})</option>`;
+                    } else {
+                        eventSelect.innerHTML += `<option disabled class="text-zinc-600">${ev.name} (เต็มแล้ว)</option>`;
+                    }
+
+                    filterEventSelect.innerHTML += `<option value="${ev.name}">${ev.name}</option>`;
+                });
+
+                renderChart(labels, counts);
+                filterUsers(); 
+            } catch (e) {
+                console.error("Error loading data:", e);
+            }
+            setLoading(false);
+        }
+
+        function filterUsers() {
+            const selectedEvent = document.getElementById('filterEventSelect').value;
+            const tableBody = document.getElementById('userTableBody');
+            const summaryStats = document.getElementById('eventSummaryStats');
+            
+            if (!selectedEvent) {
+                tableBody.innerHTML = '<tr><td colspan="3" class="text-center py-8 text-zinc-500 italic">เลือกกิจกรรมเพื่อแสดงข้อมูล</td></tr>';
+                summaryStats.classList.add('hidden');
+                return;
+            }
+
+            // กรองข้อมูลจาก allUsers
+            const filtered = allUsers.filter(u => u.event === selectedEvent);
+            
+            // คำนวณสรุปสถิติ
+            const total = filtered.length;
+            const male = filtered.filter(u => u.gender === 'ชาย').length;
+            const female = filtered.filter(u => u.gender === 'หญิง').length;
+
+            // อัปเดต UI สรุปสถิติ
+            document.getElementById('statTotal').innerText = total;
+            document.getElementById('statMale').innerText = male;
+            document.getElementById('statFemale').innerText = female;
+            summaryStats.classList.remove('hidden');
+
+            if (total === 0) {
+                tableBody.innerHTML = '<tr><td colspan="3" class="text-center py-8 text-zinc-500">ยังไม่มีผู้ลงทะเบียนกิจกรรมนี้</td></tr>';
+            } else {
+                tableBody.innerHTML = filtered.map(u => `
+                    <tr>
+                        <td class="font-medium text-white">${u.nickname}</td>
+                        <td>${u.gender}</td>
+                        <td class="flex items-center">
+                            <span class="color-dot" style="background-color: ${getColorHex(u.color)}"></span>
+                            ${u.color}
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        function getColorHex(colorName) {
+            if (colorName.includes('เขียว')) return '#22c55e';
+            if (colorName.includes('ม่วง')) return '#a855f7';
+            if (colorName.includes('แดง')) return '#ef4444';
+            return '#888';
+        }
+
+        function renderChart(labels, values) {
+            const ctx = document.getElementById('chartCanvas').getContext('2d');
+            if (myChart) myChart.destroy();
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{ 
+                        label: 'จำนวนคน', 
+                        data: values, 
+                        backgroundColor: '#4a90e2',
+                        borderRadius: 5
+                    }]
+                },
+                options: { 
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: { 
+                        y: { 
+                            beginAtZero: true, 
+                            ticks: { color: '#888' },
+                            grid: { color: '#333' } 
+                        }, 
+                        x: { 
+                            ticks: { color: '#888' },
+                            grid: { display: false } 
+                        } 
+                    },
+                    plugins: { 
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        const regForm = document.getElementById('regForm');
+        regForm.onsubmit = async (e) => {
+            e.preventDefault();
+            setLoading(true);
+            const formData = Object.fromEntries(new FormData(regForm));
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'register', data: formData })
+                });
+                const result = await res.json();
+                if(result.status === 'success') {
+                    document.getElementById('summaryBox').innerHTML = `
+                        <p><b>ชื่อเล่น:</b> ${formData.nickname}</p>
+                        <p><b>อายุ/เพศ:</b> ${formData.age} / ${formData.gender}</p>
+                        <p><b>กิจกรรม:</b> ${formData.event}</p>
+                        <p><b>สีที่เลือก:</b> ${formData.color}</p>
+                    `;
+                    showPage('checkeven');
+                    loadData();
+                    regForm.reset();
+                } else {
+                    alert('ข้อผิดพลาด: ' + result.message);
+                }
+            } catch (e) { alert('ส่งข้อมูลไม่สำเร็จ'); }
+            setLoading(false);
+        };
+
+        function showPage(id) {
+            ['index', 'user', 'checkeven'].forEach(p => document.getElementById('page-'+p).classList.add('hidden'));
+            document.getElementById('page-'+id).classList.remove('hidden');
+        }
+        function setLoading(v) { document.getElementById('loader').style.display = v ? 'flex' : 'none'; }
+    </script>
+</body>
+</html>
