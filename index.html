@@ -107,7 +107,7 @@
                 </div>
                 
                 <div class="p-4 bg-zinc-900/50 rounded border border-zinc-800">
-                    <p class="text-xs text-zinc-500 mb-3 uppercase tracking-wider font-semibold">เลือกสีที่ชอบ</p>
+                    <p class="text-xs text-zinc-500 mb-3 uppercase tracking-wider font-semibold">เลือกสี</p>
                     <div class="grid grid-cols-3 gap-2">
                         <script>
                             const colors = ['เขียว','ม่วง','แดง'];
@@ -143,7 +143,7 @@
     </div>
     
     <div class="mt-10 mb-10 opacity-50 hover:opacity-100 transition duration-500">
-        <center> <img src="aos-workshop.png" alt="AOS Workshop" class="max-w-[200px] h-auto grayscale hover:grayscale-0 transition"/> </center>
+        <center> <img src="aos-workshop.png" alt="AOS Workshop" class="max-w-[300px] h-auto grayscale hover:grayscale-0 transition"/> </center>
     </div>
 
     <script>
@@ -154,7 +154,7 @@
 
         window.onload = () => {
             const ageSelect = document.getElementById('ageSelect');
-            for(let i=6; i<=40; i++) ageSelect.innerHTML += `<option value="${i}">${i}</option>`;
+            for(let i=6; i<=30; i++) ageSelect.innerHTML += `<option value="${i}">${i}</option>`;
             loadData();
         };
 
